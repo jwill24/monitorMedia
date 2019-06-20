@@ -72,13 +72,38 @@ def getOrderInfo(soup):
 #------------------------
 
 def getOrderSpecifics(soup):
+    specList = []
+    ship = soup.find("tr", {"class": "component-type-shipping"}).find("td", {"class": "component-total"}).getText()
+    shipInfo = getAddress(soup,'shipping')
+    billInfo = getAddress(soup,'billing')
+    specList.append( (ship, shipInfo, billInfo) )
+    return specList
     
-    
+#------------------------
+
+def getAddress(soup,type):
+    address = []
+    soup2 = soup.find("div", {"class": "field-name-commerce-customer-" + type})
+    street = soup2.find("div", {"class": "street-block"}).getText()
+    city = soup2.find("span", {"class":"locality"}).getText()
+    state = soup2.find("span", {"class":"state"}).getText()
+    zip= soup2.find("span", {"class":"postal-code"}).getText()
+    address.append( (street, city + ', ' + state, zip) )
+    return address
 
 #------------------------
 
 def getItemSpecifics(soup):
-    
+    itemList = []
+    soup2 = soup.find("tbody")
+    blocks = soup2.find_all("tr")
+    for block in blocks:
+        title = block.find("td", {"class": "views-field-line-item-title"}).getText().strip()
+        price = block.find("td", {"class": "views-field-commerce-unit-price"}).getText().strip()
+        quantity = block.find("td", {"class": "views-field-quantity"}).getText().strip()
+        total = block.find("td", {"class": "views-field-commerce-total"}).getText().strip()
+        itemList.append( (title, price, quantity, total) )
+    return itemList
 
 #------------------------
 
@@ -132,15 +157,23 @@ for userNum in validEntries:
         
         # Open order page
         with requests.Session() as c:
-            spec_url = 'https://boldnotionquilting.com/user/login?destination=user/' + userNum + '/orders/' + orderNum
+            spec_url = 'https://boldnotionquilting.com/user/login?destination=user/' + userNum + '/orders/' + order
             r = c.post(spec_url, data=login_data, headers=headers)
             soupC = BeautifulSoup(r.content,'html.parser')
             
             # Get order specifics (items, unit price, quantity, total, shipping, billingInfo, shippingInfo)
-            print( getItemSpecifics(soupC) )
-            print( getOrderSpecifics(soupC) )
+            itemSpec = getItemSpecifics(soupC)
+            orderSpec = getOrderSpecifics(soupC)
+            
 
         # Build complete order list/array by appending elements
+        # order 
+        # orderInfo:  
+        # itemSpec: 
+        # orderSpec: 
+
+
 
     # Append user to csv
+
     # Export user orders to its own csv file 
