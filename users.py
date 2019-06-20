@@ -49,7 +49,7 @@ def getFb(soup):
 
 def getOrderNums(soup):
     orderList = []
-    soup2 = soup.find("tr", {"class": "views-row-first"})
+    soup2 = soup.find("tbody")
     orders = soup2.find_all("td", {"class": "views-field-order-number"})
     for order in orders:
         orderList.append( order.find("a").getText() )
@@ -57,23 +57,32 @@ def getOrderNums(soup):
 
 #------------------------
 
-#------------------------
+def getOrderInfo(soup):
+    orderList = []
+    soup2 = soup.find("tbody")
+    blocks = soup2.find_all("tr")
+    for block in blocks:
+        placed = block.find("td", {"class": "views-field-placed"}).getText().strip()
+        changed = block.find("td", {"class": "views-field-changed"}).getText().strip()
+        subTotal = block.find("td", {"class": "views-field-commerce-order-total"}).getText().strip()
+        status = block.find("td", {"class": "views-field-status"}).getText().strip()
+        orderList.append( (placed, changed, subTotal, status) )
+    return orderList
 
 #------------------------
 
-#------------------------
+def getOrderSpecifics(soup):
+    
+    
 
 #------------------------
 
-#------------------------
+def getItemSpecifics(soup):
+    
 
 #------------------------
 
-#------------------------
 
-#------------------------
-
-#------------------------
 
 headers = {
     'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36'
@@ -88,9 +97,11 @@ with open ('numbers', 'rb') as fp:
 # Loop over users
 for userNum in validEntries:
 
+    print( 'userNum: ', userNum )
+
     #Open user page and get info
     with requests.Session() as a:
-        user_url = 'https://boldnotionquilting.com/user/login?destination=user/' + str(userNum)
+        user_url = 'https://boldnotionquilting.com/user/login?destination=user/' + userNum
         r = a.post(user_url, data=login_data, headers=headers)
         soupA = BeautifulSoup(r.content,'html.parser')
         username = getUsername(soupA)
@@ -108,10 +119,28 @@ for userNum in validEntries:
         r = b.post(order_url, data=login_data, headers=headers)
         soupB = BeautifulSoup(r.content,'html.parser')
 
-        # Get order info (orderNum, placed, updated, total, status)
+        # If there are no orders, then skip
+        if soupB.find("tbody").find("a").getText() == 'APQS Machine Inquiries or Service': continue
+
+        # Get order info (orderNum, placed, updated, subTotal, status)
         orderNums = getOrderNums(soupB)
+        orderInfo = getOrderInfo(soupB)
 
+    orderArray = []
+    # Loop over order numbers
+    for order in orderNums:
+        
+        # Open order page
+        with requests.Session() as c:
+            spec_url = 'https://boldnotionquilting.com/user/login?destination=user/' + userNum + '/orders/' + orderNum
+            r = c.post(spec_url, data=login_data, headers=headers)
+            soupC = BeautifulSoup(r.content,'html.parser')
+            
+            # Get order specifics (items, unit price, quantity, total, shipping, billingInfo, shippingInfo)
+            print( getItemSpecifics(soupC) )
+            print( getOrderSpecifics(soupC) )
 
+        # Build complete order list/array by appending elements
 
-    # Open specific order page
-    #spec_url = '' + orderNum + ''
+    # Append user to csv
+    # Export user orders to its own csv file 
