@@ -101,17 +101,17 @@ for userNum in validEntries:
         home = getHome(soupA)
         fb = getFb(soupA)
 
-    orderNums = []
     # Open orders page
     with requests.Session() as b:
         order_url = 'https://boldnotionquilting.com/user/login?destination=user/' + userNum + '/orders'
         r = b.post(order_url, data=login_data, headers=headers)
         soupB = BeautifulSoup(r.content,'html.parser')
+        print( getOrderNums(soupB) )
+        sys.exit()
 
         # Get order info (orderNum, placed, updated, total, status)
-        orderNums = getOrderNums(soupB)
+
 
 
 
     # Open specific order page
-    #spec_url = '' + orderNum + ''
