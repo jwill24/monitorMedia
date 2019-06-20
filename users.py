@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import pickle
 import pandas as pd
+import csv
 import sys
 
 #------------------------
@@ -72,11 +73,17 @@ def getOrderInfo(soup):
 #------------------------
 
 def getOrderSpecifics(soup):
-    specList = []
-    ship = soup.find("tr", {"class": "component-type-shipping"}).find("td", {"class": "component-total"}).getText()
+    try: 
+        ship = soup.find("tr", {"class": "component-type-shipping"}).find("td", {"class": "component-total"}).getText()
+    except: 
+        try: ship = soup.find("tr", {"class": "component-type-flat-rate-basic-flat-rate-shipping"}).find("td", {"class": "component-total"}).getText()
+        except: ship = '$0.00'
+    try:
+        tax = soup.find("tr", {"class": "component-type-taxfl-tax-rate"}).find("td", {"class": "component-total"}).getText()
+    except: tax = '$0.00'
     shipInfo = getAddress(soup,'shipping')
     billInfo = getAddress(soup,'billing')
-    specList.append( (ship, shipInfo, billInfo) )
+    specList = (ship, tax, shipInfo, billInfo) 
     return specList
     
 #------------------------
@@ -88,7 +95,7 @@ def getAddress(soup,type):
     city = soup2.find("span", {"class":"locality"}).getText()
     state = soup2.find("span", {"class":"state"}).getText()
     zip= soup2.find("span", {"class":"postal-code"}).getText()
-    address.append( (street, city + ', ' + state, zip) )
+    address = street + ', ' + city + ', ' + state + ', ' + zip
     return address
 
 #------------------------
@@ -129,6 +136,7 @@ for userNum in validEntries:
         user_url = 'https://boldnotionquilting.com/user/login?destination=user/' + userNum
         r = a.post(user_url, data=login_data, headers=headers)
         soupA = BeautifulSoup(r.content,'html.parser')
+        
         username = getUsername(soupA)
         email = getEmail(soupA)
         dateJoined = getJoined(soupA)
@@ -136,6 +144,9 @@ for userNum in validEntries:
         last = getLast(soupA)
         home = getHome(soupA)
         fb = getFb(soupA)
+
+    userArray = {'userNum': userNum, 'Username': username, 'email': email, 'dateJoined': dateJoined, 'First Name': first, 'Last Name': last, 'Hometown': home, 'Facebook': fb}
+    #userArray = ( userNum, username, email, dateJoined, first, last, home, fb )
 
     orderNums = []
     # Open orders page
@@ -151,10 +162,12 @@ for userNum in validEntries:
         orderNums = getOrderNums(soupB)
         orderInfo = getOrderInfo(soupB)
 
+
     orderArray = []
+    iter = 0
     # Loop over order numbers
     for order in orderNums:
-        
+
         # Open order page
         with requests.Session() as c:
             spec_url = 'https://boldnotionquilting.com/user/login?destination=user/' + userNum + '/orders/' + order
@@ -165,15 +178,36 @@ for userNum in validEntries:
             itemSpec = getItemSpecifics(soupC)
             orderSpec = getOrderSpecifics(soupC)
             
-
         # Build complete order list/array by appending elements
         # order 
-        # orderInfo:  
-        # itemSpec: 
-        # orderSpec: 
+        # orderInfo: placed, changed, subTotal, status
+        # itemSpec: loop (title, price, quantity, total)
+        # orderSpec: ship, tax, shipInfo, billInfo
+        orderArray.append( {'Order Number': order, \
+                                'Order Placed': orderInfo[iter][0], \
+                                'Order Changed': orderInfo[iter][1], \
+                                'Order Status': orderInfo[iter][3], \
+                                'Order Shipping': orderSpec[0], \
+                                'Order Total': orderInfo[iter][2], \
+                                'Order Products': [i[0] for i in itemSpec], \
+                                'Unit Price': [i[1] for i in itemSpec],\
+                                'Quantity': [i[2] for i in itemSpec],\
+                                'Total': [i[3] for i in itemSpec], \
+                                'Tax': orderSpec[1], \
+                                'Shipping Address': orderSpec[2],\
+                                'Billing Address': orderSpec[3]
+                            } )
 
+        iter += 1
 
+    df = pd.DataFrame( orderArray )
 
     # Append user to csv
+    fieldnames = ['userNum', 'Username', 'email', 'dateJoined', 'First Name', 'Last Name', 'Hometown', 'Facebook']
+    with open('userInformation.csv','a', newline='') as fd:
+        writer = csv.DictWriter(fd,fieldnames=fieldnames)
+        writer.writerow(userArray)
 
     # Export user orders to its own csv file 
+    df.to_csv('orders/' + userNum + '_orders.csv')
+
